@@ -121,7 +121,7 @@ def set_av_metadata(s3_object, scan_result, scan_signature, timestamp):
     metadata[AV_TIMESTAMP_METADATA] = timestamp
     # Rename if infected
     if scan_result == AV_STATUS_INFECTED
-        s3_object.key = '*INFECTED*' + s3_object.key
+        s3_object.key = "*INFECTED*" + s3_object.key
     s3_object.copy(
         {"Bucket": s3_object.bucket_name, "Key": s3_object.key},
         ExtraArgs={
