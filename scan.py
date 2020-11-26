@@ -101,7 +101,6 @@ def verify_s3_object_version(s3, s3_object):
 def get_local_path(s3_object, local_prefix):
     return os.path.join(local_prefix, s3_object.bucket_name, s3_object.key)
 
-
 def delete_s3_object(s3_object):
     try:
         s3_object.delete()
@@ -120,6 +119,9 @@ def set_av_metadata(s3_object, scan_result, scan_signature, timestamp):
     metadata[AV_SIGNATURE_METADATA] = scan_signature
     metadata[AV_STATUS_METADATA] = scan_result
     metadata[AV_TIMESTAMP_METADATA] = timestamp
+    # Rename if infected
+    if scan_result == AV_STATUS_INFECTED
+        s3_object.key = '*INFECTED*' + s3_object.key
     s3_object.copy(
         {"Bucket": s3_object.bucket_name, "Key": s3_object.key},
         ExtraArgs={
@@ -128,6 +130,7 @@ def set_av_metadata(s3_object, scan_result, scan_signature, timestamp):
             "MetadataDirective": "REPLACE",
         },
     )
+    # TODO Delete the old file
 
 
 def set_av_tags(s3_client, s3_object, scan_result, scan_signature, timestamp):
