@@ -37,6 +37,7 @@ from common import AV_STATUS_SNS_ARN
 from common import AV_STATUS_SNS_PUBLISH_CLEAN
 from common import AV_STATUS_SNS_PUBLISH_INFECTED
 from common import AV_TIMESTAMP_METADATA
+from common import AV_RENAME_INFECTED_FILES
 from common import create_dir
 from common import get_timestamp
 
@@ -75,6 +76,16 @@ def event_object(event, event_source="s3"):
     # Create and return the object
     s3 = boto3.resource("s3")
     return s3.Object(bucket_name, key_name)
+
+def rename_infected_s3_object(s3_object):
+    s3 = boto3.resource("s3")
+    new_key = "**INFECTED**" + s3_object.key
+    copy_source = {
+        'Bucket': s3_object.bucket_name,
+        'Key': s3_object.key
+    }
+    print("Copying infected file as %s", new_key)
+    s3.meta.client.copy(copy_source, s3_object.bucket_name, new_key)
 
 
 def verify_s3_object_version(s3, s3_object):
@@ -119,9 +130,6 @@ def set_av_metadata(s3_object, scan_result, scan_signature, timestamp):
     metadata[AV_SIGNATURE_METADATA] = scan_signature
     metadata[AV_STATUS_METADATA] = scan_result
     metadata[AV_TIMESTAMP_METADATA] = timestamp
-    # Rename if infected
-    if scan_result == AV_STATUS_INFECTED
-        s3_object.key = "*INFECTED*" + s3_object.key
     s3_object.copy(
         {"Bucket": s3_object.bucket_name, "Key": s3_object.key},
         ExtraArgs={
@@ -130,7 +138,6 @@ def set_av_metadata(s3_object, scan_result, scan_signature, timestamp):
             "MetadataDirective": "REPLACE",
         },
     )
-    # TODO Delete the old file
 
 
 def set_av_tags(s3_client, s3_object, scan_result, scan_signature, timestamp):
@@ -187,8 +194,10 @@ def sns_scan_results(
         AV_STATUS_METADATA: scan_result,
         AV_TIMESTAMP_METADATA: get_timestamp(),
     }
+    subject = "{} - Malware Alert".format(s3_object.bucket_name),
     sns_client.publish(
         TargetArn=sns_arn,
+        Subject=subject
         Message=json.dumps({"default": json.dumps(message)}),
         MessageStructure="json",
         MessageAttributes={
@@ -269,6 +278,8 @@ def lambda_handler(event, context):
         pass
     if str_to_bool(AV_DELETE_INFECTED_FILES) and scan_result == AV_STATUS_INFECTED:
         delete_s3_object(s3_object)
+    if str_to_bool(AV_RENAME_INFECTED_FILES) and scan_result == AV_STATUS_INFECTED:
+        rename_infected_s3_object(s3_object)
     stop_scan_time = get_timestamp()
     print("Script finished at %s\n" % stop_scan_time)
 
